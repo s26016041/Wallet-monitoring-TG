@@ -45,8 +45,8 @@ class Solwallet {
    * @returns {string}
    */
   async getTokenName(token_address) {
-    const metadataPDA = await Metadata.getPDA(token_address);
-    const metadata = await Metadata.load(connection, metadataPDA);
+    let metadataPDA = await Metadata.getPDA(token_address);
+    let metadata = await Metadata.load(this.connection, metadataPDA);
     return metadata.data.data.name;
   }
 }

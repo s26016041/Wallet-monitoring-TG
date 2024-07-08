@@ -7,13 +7,14 @@ const chat_states = new ChatStates(bot);
 // 監聽 /start 命令
 bot.onText(/\/start/, (msg) => {
   const chat_id = msg.chat.id;
+  bot.sendMessage(chat_id, `<b>歡迎使用錢包追蹤目前只提供 SOL 地址追蹤</b>\n<code>/start</code> 介紹指令\n<code>/add_wallet</code> 新增追蹤地址\n<code>/address_list</code> 查看以追蹤地址\n`, { parse_mode: "HTML" });
 });
 bot.onText(/\/address_list/, (msg) => {
   const chat_id = msg.chat.id;
   let wallet_message = `<b>你追蹤的錢包:</b> \n`;
   wallet_map = chat_states.get_sol_wallet_map(chat_id);
   wallet_map.forEach((key, value) => {
-    wallet_message += ` <b>${key}</b>\n<code>${value}</code>\n`;
+    wallet_message += ` [${key}]\n<code>${value}</code>\n`;
   });
   bot.sendMessage(chat_id, wallet_message, { parse_mode: "HTML" });
 });
