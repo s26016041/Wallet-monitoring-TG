@@ -79,7 +79,7 @@ class ChatStates {
                     transaction.meta.postTokenBalances[1].mint
                   }">photon</a>\n代幣地址: <code>${token_name}</code>`;
                 }
-                if (post_sol > pre_sol) {
+                if (post_sol < pre_sol) {
                   let price2 = (
                     ((pre_sol - post_sol) * sol_usd) /
                     (post_token - pre_token)
