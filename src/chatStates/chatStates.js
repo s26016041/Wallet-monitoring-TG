@@ -39,13 +39,15 @@ class ChatStates {
 
       for (let [chat_id, data] of this.states) {
         let state_obj = this.states.get(chat_id);
-        console.log(this.states);
-        console.log(this.sol_usd);
+        // console.log(this.states);
+        // console.log(this.sol_usd);
         if (data && data.sol_wallet_map && data.sol_wallet_map.size > 0) {
           for (let [address, name] of data.sol_wallet_map.entries()) {
             let SignatureArray = await this.sol_wallet.getSignatureArray(
               address
             );
+            if (SignatureArray.length ==0){continue}
+            // console.log(address)
             // 沒有最後一筆哈希的話幫她添加
             if (!data.address_signature.has(address)) {
               if (state_obj) {
@@ -54,6 +56,7 @@ class ChatStates {
                   address,
                   SignatureArray[0].signature
                 );
+                // console.log(SignatureArray)
                 // 将更新后的状态对象重新存回 Map 中
                 this.states.set(chat_id, state_obj);
               }
@@ -66,50 +69,71 @@ class ChatStates {
               }
               let transaction = await this.sol_wallet.getTransaction(signature.signature);
               // 一些特殊交易室會回傳未定義
-              if (!transaction) {
+              if (
+                !transaction || !transaction.meta.postTokenBalances || transaction.meta.postTokenBalances.length === 0 ||
+                !transaction.meta.preTokenBalances || transaction.meta.preTokenBalances.length === 0
+              ) {
                 continue;
               }
-              // 判別是不是交換
-              // let containsTargetString = transaction.meta.logMessages.some(
-              //   (message) => message.includes("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
-              // );
 
               if (transaction.meta.preTokenBalances) {
-                let solscan_token_url = `https://solscan.io/account/${encodeURIComponent(transaction.meta.postTokenBalances[1].mint)}`;
-                let solscan = `https://solscan.io/account/${encodeURIComponent(address)}`;
-                let photon = `https://photon-sol.tinyastro.io/zh/lp/${encodeURIComponent(transaction.meta.postTokenBalances[1].mint)}`;
-                let telegram_message = "";
-                
-                let post_sol = transaction.meta.postTokenBalances[0].uiTokenAmount.uiAmount;
-                let post_token = transaction.meta.postTokenBalances[1].uiTokenAmount.uiAmount;
-                let pre_sol = transaction.meta.preTokenBalances[0].uiTokenAmount.uiAmount;
-                let pre_token = transaction.meta.preTokenBalances[1].uiTokenAmount.uiAmount;
-                let token_name = await this.sol_wallet.getTokenName(transaction.meta.postTokenBalances[1].mint);
-                
-                if (post_sol > pre_sol) {
-                  let price = this.formatNumber(((post_sol - pre_sol) * this.sol_usd) / (pre_token - post_token), 2);
-                  telegram_message += `<b>[<a href="${solscan}">${name}</a>]</b>\n`;
-                  telegram_message += `<b>🔴 賣 ${(post_sol - pre_sol).toFixed(2)} SOL</b>\n`;
-                  telegram_message += `<b>🟢 買 ${Math.floor(pre_token - post_token)} [<a href="${solscan_token_url}">${token_name}</a>]</b>\n`;
+                let solscan_wallet_url = `https://solscan.io/account/${address}`;
+                let telegram_message = ``;
+                let post_sol = transaction.meta.postBalances;
+                let post_token = transaction.meta.postTokenBalances;
+                let pre_sol = transaction.meta.preBalances;
+                let pre_token = transaction.meta.preTokenBalances;
+                let token_address, token_name, accountIndex, lamports, photon_url, solscan_token_url, price,signature_url
+                let token_number = 0
+                let sol_number = 0
+
+
+                telegram_message += `[<a href="${solscan_wallet_url}">${name}</a>]\n`
+                for (let pre_token_data of pre_token) {
+                  if (pre_token_data.owner === address) {
+                    token_address = pre_token_data.mint
+                    if (!pre_token_data.uiTokenAmount.uiAmount == null) {
+                      token_number += pre_token_data.uiTokenAmount.uiAmount
+                    }
+                    accountIndex = pre_token_data.accountIndex - 1
+                  }
+                }
+                for (let post_token_data of post_token) {
+                  if (post_token_data.owner === address) {
+                    token_address = post_token_data.mint
+                    if (!post_token_data.uiTokenAmount.uiAmount == null) {
+                      token_number -= post_token_data.uiTokenAmount.uiAmount
+                    }
+                    accountIndex = post_token_data.accountIndex - 1
+                  }
+                }
+                solscan_token_url = `https://solscan.io/token/${token_address}`
+                token_name = await this.sol_wallet.getTokenName(token_address);
+                lamports = pre_sol[accountIndex] - post_sol[accountIndex]
+                sol_number = this.sol_wallet.lamportToSol(Math.abs(lamports))
+                price = sol_number / Math.abs(token_number)
+                photon_url = `https://photon-sol.tinyastro.io/zh/lp/${token_address}`
+                signature_url =`https://solscan.io/tx/${signature}`
+                if (token_number < 0) {
+                  telegram_message += `<b>🔴 賣 ${sol_number} SOL</b>\n`;
+                  telegram_message += `<b>🟢 買 ${Math.abs(token_number)} [<a href="${solscan_token_url}">${token_name}</a>]</b>\n`;
                   telegram_message += `價格: ${price}\n`;
-                  telegram_message += `<a href="${photon}">photon</a>\n`;
-                  telegram_message += `代幣地址: <code>${token_name}</code>`;
+                  telegram_message += `<a href="${photon_url}">photon</a>\n`;
+                  telegram_message += `代幣地址: <code>${token_address}</code>\n`;
+                  telegram_message += `<a href="${signature_url}">交易情況</a>\n`;
+                } else {
+                  telegram_message += `<b>🔴 賣 ${Math.abs(token_number)} [<a href="${solscan_token_url}">${token_name}</a>]</b>\n`;
+                  telegram_message += `<b>🟢 買 ${sol_number} SOL</b>\n`;
+                  telegram_message += `價格: ${price}\n`;
+                  telegram_message += `<a href="${photon_url}">photon</a>\n`;
+                  telegram_message += `代幣地址: <code>${token_address}</code>\n`;
+                  telegram_message += `<a href="${signature_url}">交易情況</a>\n`;
                 }
-                
-                if (post_sol < pre_sol) {
-                  let price2 = this.formatNumber(((pre_sol - post_sol) * this.sol_usd) / (post_token - pre_token), 2);
-                  telegram_message += `<b>[<a href="${solscan}">${name}</a>]</b>\n`;
-                  telegram_message += `<b>🔴 賣 ${(post_token - pre_token).toFixed(2)} [<a href="${solscan_token_url}">${token_name}</a>]</b>\n`;
-                  telegram_message += `<b>🟢 買 ${Math.floor(pre_sol - post_sol)} SOL</b>\n`;
-                  telegram_message += `價格: ${price2}\n`;
-                  telegram_message += `<a href="${photon}">photon</a>\n`;
-                  telegram_message += `代幣地址: <code>${token_name}</code>`;
-                }
-                
+
                 this.bot.sendMessage(chat_id, telegram_message, {
                   parse_mode: "HTML",
                 });
-                
+
 
               }
             }
@@ -181,7 +205,6 @@ class ChatStates {
   }
   // 看看有沒有人設定資料
   setChatStates(chat_id, message) {
-    this.initialization(chat_id);
     this.setSolWallet(chat_id, message);
   }
 }

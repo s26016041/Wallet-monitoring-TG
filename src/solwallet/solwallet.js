@@ -49,5 +49,13 @@ class Solwallet {
     let metadata = await Metadata.load(this.connection, metadataPDA);
     return metadata.data.data.name;
   }
+  /**
+   * 
+   * @param {number} lamport 
+   * @returns {number}
+   */
+  lamportToSol(lamport) {
+    return lamport/solanaWeb3.LAMPORTS_PER_SOL
+  }
 }
 module.exports = Solwallet;

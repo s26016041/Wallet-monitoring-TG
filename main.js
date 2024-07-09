@@ -28,5 +28,9 @@ bot.onText(/\/add_wallet/, (msg) => {
 bot.on("message", (msg) => {
   const chat_id = msg.chat.id;
   const text = msg.text;
-  chat_states.setChatStates(chat_id, text);
+  chat_states.initialization(chat_id);
+  if (msg.entities == undefined) {
+    chat_states.setChatStates(chat_id, text);
+  }
+
 });
