@@ -1,6 +1,7 @@
 const SolWallet = require("../solwallet/solwallet.js");
 const parameters = require("../parameter/parameter.js");
 const axios = require("axios");
+const fs = require("fs");
 class ChatStates {
   constructor(bot) {
     this.states = new Map();
@@ -24,6 +25,19 @@ class ChatStates {
       return num.toFixed(decimals); // 如果是小数，返回指定位数的小数
     }
   }
+  // 存檔
+  saveJson() {
+    let save_data = [];
+    let sol_wallet = [];
+    for (let [chat_id, data] of this.states) {
+      for (let [address, name] of data.sol_wallet_map) {
+        sol_wallet.push({ address: address, name, name });
+      }
+      save_data.push({ chat_id: chat_id, sol_wallet: sol_wallet });
+      console.log(save_data);
+    }
+    fs.writeFileSync("data.json", JSON.stringify(save_data, null, 2), "utf-8");
+  }
   // SOL 價格
   async getSolPrice() {
     let response = await axios.get(
@@ -39,29 +53,28 @@ class ChatStates {
       try {
         for (let [chat_id, data] of this.states) {
           let state_obj = this.states.get(chat_id);
-          // console.log(this.states);
-          // console.log(this.sol_usd);
+
           if (data && data.sol_wallet_map && data.sol_wallet_map.size > 0) {
             for (let [address, name] of data.sol_wallet_map.entries()) {
               let SignatureArray = await this.sol_wallet.getSignatureArray(
                 address
               );
+              // console.log(SignatureArray, SignatureArray.length);
               if (SignatureArray.length == 0) {
                 continue;
               }
-              // console.log(address)
+              // console.log(this.states);
               // 沒有最後一筆哈希的話幫她添加
               if (!data.address_signature.has(address)) {
-                if (state_obj) {
-                  // 修改状态对象中的 address_signature 改為最新簽名
-                  state_obj.address_signature.set(
-                    address,
-                    SignatureArray[0].signature
-                  );
-                  // console.log(SignatureArray)
-                  // 将更新后的状态对象重新存回 Map 中
-                  this.states.set(chat_id, state_obj);
-                }
+                // 修改状态对象中的 address_signature 改為最新簽名
+                state_obj.address_signature.set(address, {
+                  signature: SignatureArray[0].signature,
+                  slot: SignatureArray[0].slot,
+                });
+                // console.log(SignatureArray)
+                // 将更新后的状态对象重新存回 Map 中
+                this.states.set(chat_id, state_obj);
+
                 continue;
               }
 
@@ -69,7 +82,8 @@ class ChatStates {
               for (let signature of SignatureArray) {
                 if (
                   signature.signature ==
-                  state_obj.address_signature.get(address)
+                    state_obj.address_signature.get(address).signature ||
+                  signature.slot < state_obj.address_signature.get(address).slot
                 ) {
                   break;
                 }
@@ -92,8 +106,6 @@ class ChatStates {
                   continue;
                 }
 
-
-
                 let solscan_wallet_url = `https://solscan.io/account/${address}`;
                 let telegram_message = ``;
                 let post_sol = transaction.meta.postBalances;
@@ -110,9 +122,17 @@ class ChatStates {
                   signature_url;
                 let token_number = 0;
                 let sol_number = 0;
-                for (let i = 0; i < transaction.transaction.message.accountKeys.length; i++) {
-                  if (transaction.transaction.message.accountKeys[i].pubkey.toString() == address) {
-                    accountIndex = i
+                for (
+                  let i = 0;
+                  i < transaction.transaction.message.accountKeys.length;
+                  i++
+                ) {
+                  if (
+                    transaction.transaction.message.accountKeys[
+                      i
+                    ].pubkey.toString() == address
+                  ) {
+                    accountIndex = i;
                   }
                 }
                 telegram_message += `[<a href="${solscan_wallet_url}">${name}</a>]\n`;
@@ -122,7 +142,6 @@ class ChatStates {
                     if (pre_token_data.uiTokenAmount.uiAmount != null) {
                       token_number += pre_token_data.uiTokenAmount.uiAmount;
                     }
-
                   }
                 }
                 for (let post_token_data of post_token) {
@@ -131,17 +150,13 @@ class ChatStates {
                     if (post_token_data.uiTokenAmount.uiAmount != null) {
                       token_number -= post_token_data.uiTokenAmount.uiAmount;
                     }
-
                   }
                 }
                 solscan_token_url = `https://solscan.io/token/${token_address}`;
-                token_name = await this.sol_wallet.getTokenName(
-                  token_address
-                );
+                token_name = await this.sol_wallet.getTokenName(token_address);
                 lamports = pre_sol[accountIndex] - post_sol[accountIndex];
                 sol_number = this.sol_wallet.lamportToSol(Math.abs(lamports));
-                price =
-                  (sol_number * this.sol_usd) / Math.abs(token_number);
+                price = (sol_number * this.sol_usd) / Math.abs(token_number);
                 photon_url = `https://photon-sol.tinyastro.io/zh/lp/${token_address}`;
                 signature_url = `https://solscan.io/tx/${signature.signature}`;
                 if (token_number < 0) {
@@ -165,17 +180,22 @@ class ChatStates {
                 }
 
                 this.bot.sendMessage(chat_id, telegram_message, {
-                  parse_mode: "HTML", disable_web_page_preview: true
+                  parse_mode: "HTML",
+                  disable_web_page_preview: true,
                 });
-
               }
               // 換成最新的哈希
-              if (state_obj) {
-                // 修改状态对象中的 address_signature 改為最新簽名
-                state_obj.address_signature.set(
-                  address,
+              if (
+                SignatureArray[0].slot >=
+                  state_obj.address_signature.get(address).slot &&
+                state_obj.address_signature.get(address).signature !=
                   SignatureArray[0].signature
-                );
+              ) {
+                // 修改状态对象中的 address_signature 改為最新簽名
+                state_obj.address_signature.set(address, {
+                  signature: SignatureArray[0].signature,
+                  slot: SignatureArray[0].slot,
+                });
                 // 将更新后的状态对象重新存回 Map 中
                 this.states.set(chat_id, state_obj);
               }
@@ -224,6 +244,7 @@ class ChatStates {
         this.states.set(chat_id, state_obj);
         return;
       }
+
       wallet_address = parts[0];
       name = parts[1];
 
@@ -235,6 +256,7 @@ class ChatStates {
 
       state_obj.sol_wallet_map.set(wallet_address, name);
       this.states.set(chat_id, state_obj);
+      this.saveJson();
     }
   }
   // 看看有沒有人設定資料

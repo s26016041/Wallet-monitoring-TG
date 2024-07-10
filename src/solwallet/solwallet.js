@@ -24,10 +24,15 @@ class Solwallet {
    * @returns { Promise<Array<solanaWeb3.ConfirmedSignatureInfo>>}
    */
   async getSignatureArray(address) {
-    let publicKey = new solanaWeb3.PublicKey(address);
-    return await this.connection.getSignaturesForAddress(publicKey, {
-      limit: 5,
-    });
+    try {
+      let publicKey = new solanaWeb3.PublicKey(address);
+      return await this.connection.getSignaturesForAddress(publicKey, {
+        limit: 5,
+      });
+    } catch (error) {
+      console.log("getSignatureArray壞掉 可能RPC暫時死亡");
+      return [];
+    }
   }
   /**
    * 取得特定簽名的交易資訊
@@ -50,12 +55,12 @@ class Solwallet {
     return metadata.data.data.name;
   }
   /**
-   * 
-   * @param {number} lamport 
+   *
+   * @param {number} lamport
    * @returns {number}
    */
   lamportToSol(lamport) {
-    return lamport/solanaWeb3.LAMPORTS_PER_SOL
+    return lamport / solanaWeb3.LAMPORTS_PER_SOL;
   }
 }
 module.exports = Solwallet;
