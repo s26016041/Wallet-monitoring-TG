@@ -39,7 +39,7 @@ class ChatStates {
 
       for (let [chat_id, data] of this.states) {
         let state_obj = this.states.get(chat_id);
-        // console.log(this.states);
+        console.log(this.states);
         // console.log(this.sol_usd);
         if (data && data.sol_wallet_map && data.sol_wallet_map.size > 0) {
           for (let [address, name] of data.sol_wallet_map.entries()) {
