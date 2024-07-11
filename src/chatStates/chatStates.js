@@ -7,34 +7,52 @@ class ChatStates {
     this.states = new Map();
     this.sol_wallet = new SolWallet(parameters.SOLRPC);
     this.bot = bot;
-    // this.sol_usd = this.getSolPrice().data.solana.usd;
+    this.downloadJson();
+
     this.start();
     this.getSolPrice();
   }
 
-  /**
-   *
-   * @param {number} num
-   * @param {number} decimals
-   * @returns {number}
-   */
-  formatNumber(num, decimals) {
-    if (Number.isInteger(num)) {
-      return num.toString(); // 如果是整数，直接返回字符串形式的整数
-    } else {
-      return num.toFixed(decimals); // 如果是小数，返回指定位数的小数
+  // 讀檔
+  downloadJson() {
+    // 检查文件是否存在
+    if (!fs.existsSync('data.json')) {
+      console.warn('文件不存在。');
+      return;
     }
+
+    const data = fs.readFileSync('data.json', 'utf-8');
+
+    // 检查文件是否为空
+    if (data.trim().length === 0) {
+      console.warn('文件为空。');
+      return;
+    }
+    const jsonDatas = JSON.parse(data);
+    for (let jsonData of jsonDatas) {
+      this.initialization(jsonData.chat_id)
+      for (let sol_wallet of jsonData.sol_wallet) {
+        let state_obj = this.states.get(jsonData.chat_id);
+        state_obj.sol_wallet_map.set(sol_wallet.address, sol_wallet.name);
+        this.states.set(jsonData.chat_id, state_obj);
+      }
+    }
+    // console.log(this.states)
+    // console.log(this.states.sol_wallet_map)
+    // console.log(this.states.address_signature)
+
   }
   // 存檔
   saveJson() {
     let save_data = [];
-    let sol_wallet = [];
+
     for (let [chat_id, data] of this.states) {
+      let sol_wallet = [];
       for (let [address, name] of data.sol_wallet_map) {
         sol_wallet.push({ address: address, name, name });
       }
       save_data.push({ chat_id: chat_id, sol_wallet: sol_wallet });
-      console.log(save_data);
+      // console.log(save_data);
     }
     fs.writeFileSync("data.json", JSON.stringify(save_data, null, 2), "utf-8");
   }
@@ -77,12 +95,12 @@ class ChatStates {
 
                 continue;
               }
-
+              // console.log(SignatureArray)
               // 把新的哈希交易都通知
               for (let signature of SignatureArray) {
                 if (
                   signature.signature ==
-                    state_obj.address_signature.get(address).signature ||
+                  state_obj.address_signature.get(address).signature ||
                   signature.slot < state_obj.address_signature.get(address).slot
                 ) {
                   break;
@@ -93,7 +111,7 @@ class ChatStates {
                 let transaction = await this.sol_wallet.getTransaction(
                   signature.signature
                 );
-                // console.log(transaction, )
+                // console.log(transaction)
                 // 一些特殊交易室會回傳未定義
                 if (
                   !transaction ||
@@ -101,7 +119,8 @@ class ChatStates {
                   !transaction.meta.postTokenBalances ||
                   transaction.meta.postTokenBalances.length === 0 ||
                   !transaction.meta.preTokenBalances ||
-                  transaction.meta.preTokenBalances.length === 0
+                  transaction.meta.preTokenBalances.length === 0 ||
+                  transaction == null
                 ) {
                   continue;
                 }
@@ -187,9 +206,9 @@ class ChatStates {
               // 換成最新的哈希
               if (
                 SignatureArray[0].slot >=
-                  state_obj.address_signature.get(address).slot &&
+                state_obj.address_signature.get(address).slot &&
                 state_obj.address_signature.get(address).signature !=
-                  SignatureArray[0].signature
+                SignatureArray[0].signature
               ) {
                 // 修改状态对象中的 address_signature 改為最新簽名
                 state_obj.address_signature.set(address, {

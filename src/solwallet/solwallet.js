@@ -30,8 +30,11 @@ class Solwallet {
         limit: 5,
       });
     } catch (error) {
-      console.log("getSignatureArray壞掉 可能RPC暫時死亡");
-      return [];
+      console.log("getSignatureArray壞掉 可能RPC暫時死亡",error);
+      let publicKey = new solanaWeb3.PublicKey(address);
+      return await this.connection.getSignaturesForAddress(publicKey, {
+        limit: 5,
+      });
     }
   }
   /**
@@ -40,9 +43,17 @@ class Solwallet {
    * @returns { Promise<solanaWeb3.ParsedTransactionWithMeta | null>} - 返回包含交易資訊的物件，如果失敗則返回 null
    */
   async getTransaction(signature) {
-    return await this.connection.getParsedTransaction(signature, {
-      maxSupportedTransactionVersion: 0,
-    });
+    try {
+
+      return await this.connection.getParsedTransaction(signature, {
+        maxSupportedTransactionVersion: 0,
+      });
+    } catch (error) {
+      console.error("交易資訊 失敗 可能RPC 又掛了 馬上重試:", error);
+      return await this.connection.getParsedTransaction(signature, {
+        maxSupportedTransactionVersion: 0,
+      });
+    }
   }
   /**
    *
