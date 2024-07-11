@@ -25,11 +25,15 @@ class Solwallet {
    */
   async getSignatureArray(address) {
     try {
+      console.log("----------------",address)
+
       let publicKey = new solanaWeb3.PublicKey(address);
       return await this.connection.getSignaturesForAddress(publicKey, {
         limit: 5,
       });
     } catch (error) {
+      console.log("----------------",address)
+
       console.log("getSignatureArray壞掉 可能RPC暫時死亡",error);
       let publicKey = new solanaWeb3.PublicKey(address);
       return await this.connection.getSignaturesForAddress(publicKey, {
@@ -44,11 +48,14 @@ class Solwallet {
    */
   async getTransaction(signature) {
     try {
+      console.log("----------------",signature)
 
       return await this.connection.getParsedTransaction(signature, {
         maxSupportedTransactionVersion: 0,
       });
     } catch (error) {
+      console.log("----------------",signature)
+
       console.error("交易資訊 失敗 可能RPC 又掛了 馬上重試:", error);
       return await this.connection.getParsedTransaction(signature, {
         maxSupportedTransactionVersion: 0,
