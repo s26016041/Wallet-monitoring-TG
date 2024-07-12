@@ -27,7 +27,6 @@ class Solwallet {
     while (true) {
       // 無限迴圈
       try {
-        console.log("------------------------", address);
         let publicKey = new solanaWeb3.PublicKey(address);
         return await this.connection.getSignaturesForAddress(publicKey, {
           limit: 5,
@@ -47,7 +46,6 @@ class Solwallet {
     while (true) {
       // 無限迴圈
       try {
-        console.log("------------------------", signature);
 
         const transaction = await this.connection.getParsedTransaction(
           signature,

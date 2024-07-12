@@ -12,7 +12,7 @@ bot.onText(/\/start/, (msg) => {
 bot.onText(/\/address_list/, (msg) => {
   const chat_id = msg.chat.id;
   let wallet_message = `<b>你追蹤的錢包:</b> \n`;
-  wallet_map = chat_states.get_sol_wallet_map(chat_id);
+  wallet_map = chat_states.getSolWalletMap(chat_id);
   wallet_map.forEach((key, value) => {
     wallet_message += ` [${key}]\n<code>${value}</code>\n`;
   });
