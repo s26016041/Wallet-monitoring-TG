@@ -7,17 +7,16 @@ const State = require("../state/State.js");
 const axios = require("axios");
 const fs = require("fs");
 /**
-* @typedef {Object} SolJsonData
-* @property {number} chat_id - The wallet signature.
-* @property {SolWalletData[]} sol_wallet - The slot number.
-*/
-
+ * @typedef {Object} SolJsonData
+ * @property {number} chat_id - The wallet signature.
+ * @property {SolWalletData[]} sol_wallet - The slot number.
+ */
 
 /**
-* @typedef {Object} SolWalletData
-* @property {string} address - The wallet signature.
-* @property {string} name - The slot number.
-*/
+ * @typedef {Object} SolWalletData
+ * @property {string} address - The wallet signature.
+ * @property {string} name - The slot number.
+ */
 
 class ChatStates {
   constructor(bot) {
@@ -42,26 +41,28 @@ class ChatStates {
   // 讀檔
   downloadJson() {
     // 检查文件是否存在
-    if (!fs.existsSync('solData.json')) {
-      console.warn('文件不存在。');
+    if (!fs.existsSync("solData.json")) {
+      console.warn("文件不存在。");
       return;
     }
 
-    const data = fs.readFileSync('solData.json', 'utf-8');
+    const data = fs.readFileSync("solData.json", "utf-8");
 
     // 检查文件是否为空
     if (data.trim().length === 0) {
-      console.warn('文件为空。');
+      console.warn("文件为空。");
       return;
     }
     /**
-     *  @type {SolJsonData[]} 
+     *  @type {SolJsonData[]}
      */
     const jsonDatas = JSON.parse(data);
     for (let jsonData of jsonDatas) {
-      this.initialization(jsonData.chat_id)
+      this.initialization(jsonData.chat_id);
       for (let sol_wallet of jsonData.sol_wallet) {
-        this.states.get(jsonData.chat_id).setSolWalletMap(sol_wallet.address, sol_wallet.name)
+        this.states
+          .get(jsonData.chat_id)
+          .setSolWalletMap(sol_wallet.address, sol_wallet.name);
       }
     }
   }
@@ -76,7 +77,11 @@ class ChatStates {
       }
       save_data.push({ chat_id: chat_id, sol_wallet: sol_wallet });
     }
-    fs.writeFileSync("solData.json", JSON.stringify(save_data, null, 2), "utf-8");
+    fs.writeFileSync(
+      "solData.json",
+      JSON.stringify(save_data, null, 2),
+      "utf-8"
+    );
   }
   // SOL 價格
   async getSolPrice() {
@@ -92,8 +97,11 @@ class ChatStates {
     this.printFiveInterval = setInterval(async () => {
       try {
         for (let [chat_id, data] of this.states) {
-
-          if (data && data.getSolWalletMap() && data.getSolWalletMap().size > 0) {
+          if (
+            data &&
+            data.getSolWalletMap() &&
+            data.getSolWalletMap().size > 0
+          ) {
             for (let [address, name] of data.getSolWalletMap()) {
               let SignatureArray = await this.sol_wallet.getSignatureArray(
                 address
@@ -103,17 +111,24 @@ class ChatStates {
               }
               // 沒有最後一筆哈希的話幫她添加
               if (!data.getSolAddressSignature().has(address)) {
-                this.states.get(chat_id).setSolAddressSignature(address, SignatureArray[0].signature, SignatureArray[0].slot)
+                this.states
+                  .get(chat_id)
+                  .setSolAddressSignature(
+                    address,
+                    SignatureArray[0].signature,
+                    SignatureArray[0].slot
+                  );
                 continue;
               }
-              console.log(address)
-              console.log(this.states.get(chat_id).getSolAddressSignature())
+              // console.log(address)
+              // console.log(this.states.get(chat_id).getSolAddressSignature())
               // 把新的哈希交易都通知
               for (let signature of SignatureArray) {
                 if (
                   signature.signature ==
-                  data.getSolAddressSignature().get(address).signature ||
-                  signature.slot < data.getSolAddressSignature().get(address).slot
+                    data.getSolAddressSignature().get(address).signature ||
+                  signature.slot <
+                    data.getSolAddressSignature().get(address).slot
                 ) {
                   break;
                 }
@@ -215,10 +230,12 @@ class ChatStates {
                   disable_web_page_preview: true,
                 });
                 // 換成最新的哈希
-                data.setSolAddressSignature(address, signature.signature, signature.slot)
+                data.setSolAddressSignature(
+                  address,
+                  signature.signature,
+                  signature.slot
+                );
               }
-
-
             }
           }
         }
@@ -227,29 +244,50 @@ class ChatStates {
       }
     }, 5000);
   }
-
+  /**
+   *
+   * @param {string} chat_id
+   */
   // 不存在就幫他初始化
   initialization(chat_id) {
     if (!this.states.has(chat_id)) {
-      this.states.set(chat_id, new State);
-
+      this.states.set(chat_id, new State());
     }
   }
-
+  /**
+   *
+   * @param {string} chat_id
+   */
   // 設置加入錢包
-  addWallet(chat_id) {
-    this.states.get(chat_id).setSolAddWallet(true)
+  solAddWallet(chat_id) {
+    this.states.get(chat_id).setSolAddWallet(true);
   }
+  /**
+   *
+   * @param {string} chat_id
+   */
+  // 設置加入錢包
+  solDeleteWallet(chat_id) {
+    this.states.get(chat_id).setSolDeleteWallet(true);
+  }
+  /**
+   *
+   * @param {string} chat_id
+   * @param {string} message
+   * @returns
+   */
   // 每次接收到的訊息會看該群組是否有正在使用指令
   setSolWallet(chat_id, message) {
-
+    // 檢查增加 sol 地址
     if (this.states.get(chat_id).getAddSolWallet()) {
       let wallet_address, name;
       let parts = message.split(" ");
 
-      this.states.get(chat_id).setSolAddWallet(false)
+      this.states.get(chat_id).setSolAddWallet(false);
       if (parts.length != 2) {
-        this.bot.sendMessage(chat_id, "草你媽別亂輸入");
+        this.bot.sendMessage(chat_id, `<b>公主請好好輸入</b>`, {
+          parse_mode: "HTML",
+        });
         return;
       }
 
@@ -260,7 +298,13 @@ class ChatStates {
         this.bot.sendMessage(chat_id, `${wallet_address} 這不是 sol 地址`);
         return;
       }
-      this.states.get(chat_id).setSolWalletMap(wallet_address, name)
+      this.states.get(chat_id).setSolWalletMap(wallet_address, name);
+      this.saveJson();
+    }
+
+    if (this.states.get(chat_id).getDeleteSolWallet()) {
+      this.states.get(chat_id).setSolDeleteWallet(false);
+      this.states.get(chat_id).deleteSolWalletMap(message);
       this.saveJson();
     }
   }
@@ -269,14 +313,13 @@ class ChatStates {
     this.setSolWallet(chat_id, message);
   }
 
-
   /**
-   * 
-   * @param {number} chat_id 
+   *
+   * @param {number} chat_id
    * @returns {Map<string, string>}
    */
   getSolWalletMap(chat_id) {
-    return this.states.get(chat_id).getSolWalletMap()
+    return this.states.get(chat_id).getSolWalletMap();
   }
 }
 

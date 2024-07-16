@@ -24,17 +24,31 @@ class Solwallet {
    * @returns { Promise<Array<solanaWeb3.ConfirmedSignatureInfo>>}
    */
   async getSignatureArray(address) {
-    while (true) {
+    const maxAttempts = 10; // 設置最大重試次數
+    let attempts = 0;
+    const initialDelay = 500; // 初始延遲時間
+    while (attempts < maxAttempts) {
       // 無限迴圈
       try {
         let publicKey = new solanaWeb3.PublicKey(address);
-        return await this.connection.getSignaturesForAddress(publicKey, {
-          limit: 5,
-        });
+        const Signatures = await this.connection.getSignaturesForAddress(
+          publicKey,
+          {
+            limit: 5,
+          }
+        );
+        if (Signatures) {
+          return Signatures;
+        }
       } catch (error) {
         console.log("getSignatureArray壞掉 可能RPC暫時死亡", error);
       }
+
+      attempts++;
+      const retryAfter = initialDelay * Math.pow(2, attempts); // 指數退避策略
+      await new Promise((resolve) => setTimeout(resolve, retryAfter));
     }
+    return [];
   }
 
   /**
@@ -43,10 +57,12 @@ class Solwallet {
    * @returns { Promise<solanaWeb3.ParsedTransactionWithMeta | null>} - 返回包含交易資訊的物件，如果失敗則返回 null
    */
   async getTransaction(signature) {
-    while (true) {
+    const maxAttempts = 10; // 設置最大重試次數
+    let attempts = 0;
+    const initialDelay = 500; // 延遲時間
+    while (attempts < maxAttempts) {
       // 無限迴圈
       try {
-
         const transaction = await this.connection.getParsedTransaction(
           signature,
           {
@@ -59,7 +75,11 @@ class Solwallet {
       } catch (error) {
         console.error("交易資訊 失敗 可能RPC 又掛了 馬上重試:", error);
       }
+      attempts++;
+      const retryAfter = initialDelay * Math.pow(2, attempts); // 指數退避策略
+      await new Promise((resolve) => setTimeout(resolve, retryAfter));
     }
+    return null;
   }
 
   /**
