@@ -1,7 +1,7 @@
 const SolWallet = require("../solwallet/solwallet.js");
 const parameters = require("../parameter/parameter.js");
 const TelegramBot = require("node-telegram-bot-api");
-
+const sol_token_mint = "So11111111111111111111111111111111111111112"
 const State = require("../state/State.js");
 
 const axios = require("axios");
@@ -126,9 +126,9 @@ class ChatStates {
               for (let signature of SignatureArray) {
                 if (
                   signature.signature ==
-                    data.getSolAddressSignature().get(address).signature ||
+                  data.getSolAddressSignature().get(address).signature ||
                   signature.slot <
-                    data.getSolAddressSignature().get(address).slot
+                  data.getSolAddressSignature().get(address).slot
                 ) {
                   break;
                 }
@@ -138,6 +138,7 @@ class ChatStates {
                 let transaction = await this.sol_wallet.getTransaction(
                   signature.signature
                 );
+
                 // console.log(transaction)
                 // 一些特殊交易室會回傳未定義
                 if (
@@ -151,13 +152,21 @@ class ChatStates {
                 ) {
                   continue;
                 }
-
+                if (
+                  transaction.transaction.message.accountKeys[
+                    0
+                  ].pubkey.toString() != address
+                ) {
+                  continue;
+                }
                 let solscan_wallet_url = `https://solscan.io/account/${address}`;
                 let telegram_message = ``;
+                let gas = transaction.meta.fee
                 let post_sol = transaction.meta.postBalances;
                 let post_token = transaction.meta.postTokenBalances;
                 let pre_sol = transaction.meta.preBalances;
                 let pre_token = transaction.meta.preTokenBalances;
+                let token_sol = 0
                 let token_address,
                   token_name,
                   accountIndex = 0,
@@ -168,41 +177,48 @@ class ChatStates {
                   signature_url;
                 let token_number = 0;
                 let sol_number = 0;
-                for (
-                  let i = 0;
-                  i < transaction.transaction.message.accountKeys.length;
-                  i++
-                ) {
-                  if (
-                    transaction.transaction.message.accountKeys[
-                      i
-                    ].pubkey.toString() == address
-                  ) {
-                    accountIndex = i;
-                  }
-                }
+
                 telegram_message += `[<a href="${solscan_wallet_url}">${name}</a>]\n`;
                 for (let pre_token_data of pre_token) {
                   if (pre_token_data.owner === address) {
-                    token_address = pre_token_data.mint;
-                    if (pre_token_data.uiTokenAmount.uiAmount != null) {
-                      token_number += pre_token_data.uiTokenAmount.uiAmount;
+                    if (pre_token_data.mint == sol_token_mint) {
+                      token_sol += pre_token_data.uiTokenAmount.uiAmount
+                    } else {
+                      token_address = pre_token_data.mint;
+                      if (pre_token_data.uiTokenAmount.uiAmount != null) {
+                        token_number += pre_token_data.uiTokenAmount.uiAmount;
+                      }
                     }
+
                   }
                 }
                 for (let post_token_data of post_token) {
                   if (post_token_data.owner === address) {
-                    token_address = post_token_data.mint;
-                    if (post_token_data.uiTokenAmount.uiAmount != null) {
-                      token_number -= post_token_data.uiTokenAmount.uiAmount;
+                    if (post_token_data.mint == sol_token_mint) {
+                      token_sol -= post_token_data.uiTokenAmount.uiAmount
+                    } else {
+                      token_address = post_token_data.mint;
+                      if (post_token_data.uiTokenAmount.uiAmount != null) {
+                        token_number -= post_token_data.uiTokenAmount.uiAmount;
+                      }
                     }
+
                   }
                 }
                 solscan_token_url = `https://solscan.io/token/${token_address}`;
                 token_name = await this.sol_wallet.getTokenName(token_address);
-                lamports = pre_sol[accountIndex] - post_sol[accountIndex];
-                sol_number = this.sol_wallet.lamportToSol(Math.abs(lamports));
-                price = (sol_number * this.sol_usd) / Math.abs(token_number);
+                lamports = (pre_sol[accountIndex]) - post_sol[accountIndex];
+                // console.log("gas: ", gas)
+                // console.log("pre_sol: ", pre_sol[accountIndex])
+                // console.log("post_sol: ", post_sol[accountIndex])
+                // console.log("lamports: ", lamports)
+                if (token_sol == 0) {
+                  sol_number = this.sol_wallet.lamportToSol(Math.abs(lamports));
+                  price = (sol_number * this.sol_usd) / Math.abs(token_number);
+                } else {
+                  sol_number = Math.abs(token_sol);
+                  price = (token_sol * this.sol_usd) / Math.abs(token_number);
+                }
                 photon_url = `https://photon-sol.tinyastro.io/zh/lp/${token_address}`;
                 signature_url = `https://solscan.io/tx/${signature.signature}`;
                 if (token_number < 0) {
