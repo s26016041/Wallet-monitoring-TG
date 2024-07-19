@@ -31,6 +31,10 @@ class ChatStates {
     /**
      * @type {TelegramBot}
      */
+    /**
+     *  @type {string[]}
+     */
+    this.err_data = []
     this.bot = bot;
     this.downloadJson();
 
@@ -159,9 +163,11 @@ class ChatStates {
                 ) {
                   continue;
                 }
+                this.err_data[0] = signature.signature
+
                 let solscan_wallet_url = `https://solscan.io/account/${address}`;
                 let telegram_message = ``;
-                let gas = transaction.meta.fee
+
                 let post_sol = transaction.meta.postBalances;
                 let post_token = transaction.meta.postTokenBalances;
                 let pre_sol = transaction.meta.preBalances;
@@ -177,7 +183,6 @@ class ChatStates {
                   signature_url;
                 let token_number = 0;
                 let sol_number = 0;
-
                 telegram_message += `[<a href="${solscan_wallet_url}">${name}</a>]\n`;
                 for (let pre_token_data of pre_token) {
                   if (pre_token_data.owner === address) {
@@ -192,6 +197,9 @@ class ChatStates {
 
                   }
                 }
+                if (token_number == 0) {
+                  telegram_message += `<b>第一次購買</b>\n`
+                }
                 for (let post_token_data of post_token) {
                   if (post_token_data.owner === address) {
                     if (post_token_data.mint == sol_token_mint) {
@@ -204,6 +212,12 @@ class ChatStates {
                     }
 
                   }
+                }
+                if (token_number == 0) {
+                  telegram_message += `<b>全出了</b>\n`
+                }
+                if (token_address == undefined) {
+                  continue
                 }
                 solscan_token_url = `https://solscan.io/token/${token_address}`;
                 token_name = await this.sol_wallet.getTokenName(token_address);
