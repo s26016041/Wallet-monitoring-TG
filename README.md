@@ -12,12 +12,7 @@ sol_delete_wallet - 刪除追蹤列表地址
 2. 安裝套件: `npm install`
 3. 將 `parameter.js` 替換成你的 Telegram 機器人 token 和 SOL RPC
 4. 啟動機器人 `node main.js`
-## 免責聲明
-該機器人僅用於教育目的，不應用作財務建議。該機器人無法存取您的錢包。
 ## 截圖
 ![Alt text](picture/picture1.png)
-<style>
-h1 {
-    text-align: center;
-}
-</style>
+## 免責聲明
+該機器人僅用於教育目的，不應用作財務建議。該機器人無法存取您的錢包。
